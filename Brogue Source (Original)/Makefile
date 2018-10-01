@@ -7,6 +7,10 @@ CFLAGS=$(FLAGS) -I$(LIBTCODDIR)/include -I$(SDLDIR)/include -IBrogueCode -IPlatf
 
 OBJS=PlatformCode/PlatformDefines.h \
 	BrogueCode/Rogue.h \
+	BrogueCode/Sqrt.o \
+	BrogueCode/Grid.o \
+	BrogueCode/Time.o \
+	BrogueCode/PowerTables.o \
 	BrogueCode/Architect.o \
 	BrogueCode/Combat.o \
 	BrogueCode/Dijkstra.o \
