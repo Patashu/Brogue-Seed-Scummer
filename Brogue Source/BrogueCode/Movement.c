@@ -2176,7 +2176,7 @@ boolean useStairs(short stairDirection) {
             rogue.cursorLoc[0] = rogue.cursorLoc[1] = -1;
             rogue.depthLevel++;
             message("You descend.", false);
-            startLevel(rogue.depthLevel - 1, stairDirection);
+            startLevel(rogue.depthLevel - 1, stairDirection, false);
             if (rogue.depthLevel > rogue.deepestLevel) {
                 rogue.deepestLevel = rogue.depthLevel;
             }
@@ -2199,7 +2199,7 @@ boolean useStairs(short stairDirection) {
 			} else {
                 //copyDisplayBuffer(fromBuf, displayBuffer);
 				message("You ascend.", false);
-				startLevel(rogue.depthLevel + 1, stairDirection);
+				startLevel(rogue.depthLevel + 1, stairDirection, false);
                 //copyDisplayBuffer(toBuf, displayBuffer);
                 //irisFadeBetweenBuffers(fromBuf, toBuf, mapToWindowX(player.xLoc), mapToWindowY(player.yLoc), 20, true);
 			}

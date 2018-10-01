@@ -2162,9 +2162,9 @@ enum NGCommands {
 	NG_NEW_GAME,
 	NG_NEW_GAME_WITH_SEED,
 	NG_OPEN_GAME,
+	NG_SCUM,
 	NG_VIEW_RECORDING,
 	NG_HIGH_SCORES,
-    NG_SCUM,
 	NG_QUIT,
 };
 
@@ -2587,7 +2587,7 @@ extern "C" {
 	boolean fileExists(const char *pathname);
 	boolean chooseFile(char *path, char *prompt, char *defaultName, char *suffix);
 	boolean openFile(const char *path);
-	void initializeRogue(unsigned long seed);
+	void initializeRogue(unsigned long seed, boolean scumming);
 	void gameOver(char *killedBy, boolean useCustomPhrasing);
     void victory(boolean superVictory);
 	void enableEasyMode();
@@ -2736,7 +2736,7 @@ extern "C" {
 	void executeMouseClick(rogueEvent *theEvent);
 	void executeKeystroke(signed long keystroke, boolean controlKey, boolean shiftKey);
 	void initializeLevel();
-	void startLevel (short oldLevelNumber, short stairDirection);
+	void startLevel (short oldLevelNumber, short stairDirection, boolean scumming);
 	void updateMinersLightRadius();
 	void freeCreature(creature *monst);
 	void emptyGraveyard();

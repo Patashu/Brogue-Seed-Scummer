@@ -89,6 +89,36 @@ int main(int argc, char *argv[])
 			return 0;
 		}
 
+		if (strcmp(argv[i], "--scum") == 0 && (i+1) < argc) {
+			// scum and quit
+			if ((i+2) >= argc)
+			{
+			    printf("Scumming for: %s\n", argv[i+1]);
+                startScum(argv[i+1], false, false);
+                return 0;
+			}
+			char target[255]; memset(target, '\0', sizeof(char)*255);
+			int k = i + 1;
+			for (; k < argc; ++k)
+			{
+			    strcat(target, argv[k]);
+			    if ((k+1) < argc)
+			    {
+			        strcat(target, " ");
+			    }
+			}
+			printf("Scumming for: %s\n", target);
+			startScum(target, false);
+			return 0;
+		}
+
+		if (strcmp(argv[i], "--viewseed") == 0 && (i+1) < argc) {
+            //seed peer and quit
+            printf("Peering at contents of seed: %s\n", argv[i+1]);
+            seedPeer(atol(argv[i+1]));
+            return 0;
+		}
+
 		if (strcmp(argv[i], "--seed") == 0 || strcmp(argv[i], "-s") == 0) {
 			// pick a seed!
 			if (i + 1 < argc) {

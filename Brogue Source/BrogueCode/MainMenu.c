@@ -274,12 +274,12 @@ void titleMenu() {
 	
 	short i, b, x, y, button;
 	buttonState state;
-	brogueButton buttons[6];
+	brogueButton buttons[7];
 	char whiteColorEscape[10] = "";
 	char goldColorEscape[10] = "";
 	char newGameText[100] = "", customNewGameText[100] = "";
 	rogueEvent theEvent;
-	enum NGCommands buttonCommands[6] = {NG_NEW_GAME, NG_OPEN_GAME, NG_VIEW_RECORDING, NG_HIGH_SCORES, NG_QUIT};
+	enum NGCommands buttonCommands[7] = {NG_NEW_GAME, NG_SCUM, NG_OPEN_GAME, NG_VIEW_RECORDING, NG_HIGH_SCORES, NG_QUIT};
 	
 	cellDisplayBuffer shadowBuf[COLS][ROWS];
 	
@@ -305,6 +305,12 @@ void titleMenu() {
 	buttons[b].hotkey[1] = 'N';
 	b++;
 	
+	initializeButton(&(buttons[b]));
+	sprintf(buttons[b].text, "     %sS%startscum      ", goldColorEscape, whiteColorEscape);
+	buttons[b].hotkey[0] = 's';
+	buttons[b].hotkey[1] = 'S';
+	b++;
+
 	initializeButton(&(buttons[b]));
 	sprintf(buttons[b].text, "     %sO%spen Game      ", goldColorEscape, whiteColorEscape);
 	buttons[b].hotkey[0] = 'o';
@@ -606,7 +612,7 @@ void scumMonster(creature *monst, FILE *logFile) {
     }
 }
 
-void scum(unsigned long startingSeed, short numberOfSeedsToScan, short scanThroughDepth) {
+/*void scum(unsigned long startingSeed, short numberOfSeedsToScan, short scanThroughDepth) {
     unsigned long theSeed;
     char path[BROGUE_FILENAME_MAX];
     item *theItem;
@@ -661,7 +667,7 @@ the first %i depths will, of course, make the game significantly easier.",
         remove(currentFilePath); // Don't add a spurious LastGame file to the brogue folder.
     }
     fclose(logFile);
-}
+}*/
 
 // This is the basic program loop.
 // When the program launches, or when a game ends, you end up here.
@@ -760,12 +766,43 @@ void mainBrogueJunction() {
 				}
 				
 				rogue.nextGame = NG_NOTHING;
-				initializeRogue(rogue.nextGameSeed);
-				startLevel(rogue.depthLevel, 1); // descending into level 1
+				initializeRogue(rogue.nextGameSeed, false);
+				startLevel(rogue.depthLevel, 1, false); // descending into level 1
 				
 				mainInputLoop();
 				freeEverything();
 				break;
+            case NG_SCUM:
+                rogue.nextGamePath[0] = '\0';
+				randomNumbersGenerated = 0;
+				boolean checkboxResult = false;
+                if (getInputTextStringWithCheckbox(buf, &checkboxResult, "Find dungeon containing uncursed item(s) (, separates items):", "Stop at depth 2",
+											   64,
+											   "",
+											   "",
+											   TEXT_INPUT_NORMAL,
+											   true)
+							&& buf[0] != '\0') {
+                    rogue.nextGame = NG_NOTHING;
+                    rogue.nextGameSeed = startScum(buf, true, checkboxResult);
+                    if (rogue.nextGameSeed == 0) break;
+                    rogue.nextGamePath[0] = '\0';
+                    randomNumbersGenerated = 0;
+                    strcpy(currentFilePath, LAST_GAME_PATH);
+                    rogue.playbackMode = false;
+                    rogue.playbackFastForward = false;
+                    rogue.playbackBetweenTurns = false;
+                    initializeRogue(rogue.nextGameSeed, false);
+                    startLevel(rogue.depthLevel, 1, false); // descending into level 1
+                    mainInputLoop();
+                    freeEverything();
+                }
+                else
+                {
+                    rogue.nextGame = NG_NOTHING;
+                    break; // Don't start a new game after all.
+                }
+                break;
 			case NG_OPEN_GAME:
 				rogue.nextGame = NG_NOTHING;
 				path[0] = '\0';
@@ -803,9 +840,9 @@ void mainBrogueJunction() {
 				if (openFile(path)) {
 					randomNumbersGenerated = 0;
 					rogue.playbackMode = true;
-					initializeRogue(0); // Seed argument is ignored because we're in playback.
+					initializeRogue(0, false); // Seed argument is ignored because we're in playback.
 					if (!rogue.gameHasEnded) {
-						startLevel(rogue.depthLevel, 1);
+						startLevel(rogue.depthLevel, 1, false);
                         rogue.playbackPaused = true;
 						displayAnnotation(); // in case there's an annotation for turn 0
 					}
@@ -836,10 +873,6 @@ void mainBrogueJunction() {
 				rogue.nextGame = NG_NOTHING;
 				printHighScores(false);
 				break;
-            case NG_SCUM:
-                rogue.nextGame = NG_NOTHING;
-                scum(1, 1000, 5);
-                break;
 			case NG_QUIT:
 				// No need to do anything.
 				break;

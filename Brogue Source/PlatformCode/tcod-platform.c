@@ -7,7 +7,7 @@
 #include "platform.h"
 
 #if TCOD_TECHVERSION >= 0x01050103
-#define USE_NEW_TCOD_API
+//#define USE_NEW_TCOD_API
 #endif
 
 extern playerCharacter rogue;
@@ -118,7 +118,6 @@ static void tcod_plotChar(uchar inputChar,
 			case OMEGA_CHAR: inputChar = 144 + 6; break;
 			case THETA_CHAR: inputChar = 144 + 7; break;
 			case LAMDA_CHAR: inputChar = 144 + 8; break;
-			case KOPPA_CHAR: inputChar = 144 + 9; break; // is this right?
 			case CHARM_CHAR: inputChar = 144 + 9; break;
 			case LOZENGE_CHAR: inputChar = 144 + 10; break;
 			case CROSS_PRODUCT_CHAR: inputChar = 144 + 11; break;

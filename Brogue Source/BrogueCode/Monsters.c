@@ -339,6 +339,39 @@ boolean monsterWillAttackTarget(const creature *attacker, const creature *defend
     return false;
 }
 
+void monsterNameWithMutation(char *buf, creature *monst, boolean includeArticle) {
+
+	if (monst == &player) {
+		strcpy(buf, "you");
+		return;
+	}
+	if (canSeeMonster(monst) || rogue.playbackOmniscience) {
+		if (player.status[STATUS_HALLUCINATING] && !rogue.playbackOmniscience) {
+
+			assureCosmeticRNG;
+			sprintf(buf, "%s%s", (includeArticle ? "the " : ""),
+					monsterCatalog[rand_range(1, NUMBER_MONSTER_KINDS - 1)].monsterName);
+			restoreRNG;
+
+			return;
+		}
+		if (monst->mutationIndex >= 0)
+		{
+		    sprintf(buf, "%s%s %s", (includeArticle ? (monst->creatureState == MONSTER_ALLY ? "your " : "the ") : ""),
+				mutationCatalog[monst->mutationIndex].title, monst->info.monsterName);
+		}
+		else
+		{
+		    sprintf(buf, "%s%s", (includeArticle ? (monst->creatureState == MONSTER_ALLY ? "your " : "the ") : ""),
+				monst->info.monsterName);
+		}
+		return;
+	} else {
+		strcpy(buf, "something");
+		return;
+	}
+}
+
 boolean monstersAreTeammates(const creature *monst1, const creature *monst2) {
 	// if one follows the other, or the other follows the one, or they both follow the same
 	return ((((monst1->bookkeepingFlags & MB_FOLLOWER) && monst1->leader == monst2)

@@ -207,7 +207,7 @@ void generateFontFiles() {
 // Seed is used as the dungeon seed unless it's zero, in which case generate a new one.
 // Either way, previousGameSeed is set to the seed we use.
 // None of this seed stuff is applicable if we're playing a recording.
-void initializeRogue(unsigned long seed) {
+void initializeRogue(unsigned long seed, boolean scumming) {
 	short i, j, k;
 	item *theItem;
 	boolean playingback, playbackFF, playbackPaused;
@@ -239,7 +239,7 @@ void initializeRogue(unsigned long seed) {
 	}
     
     //benchmark();
-    
+    if (!scumming)
 	initRecording();
 	
     levels = malloc(sizeof(levelData) * (DEEPEST_LEVEL+1));
@@ -295,7 +295,7 @@ void initializeRogue(unsigned long seed) {
 		}
 	}
 	restoreRNG;
-	
+    if (!scumming)
 	zeroOutGrid(displayDetail);
 	
 	for (i=0; i<NUMBER_MONSTER_KINDS; i++) {
@@ -574,8 +574,10 @@ void initializeRogue(unsigned long seed) {
 //			theItem = addItemToPack(theItem);
 //		}
 	}
+	if (!scumming) {
 	blackOutScreen();
 	welcome();
+}
 }
 
 // call this once per level to set all the dynamic colors as a function of depth
@@ -588,7 +590,7 @@ void updateColors() {
 	}
 }
 
-void startLevel(short oldLevelNumber, short stairDirection) {
+void startLevel(short oldLevelNumber, short stairDirection, boolean scumming) {
 	unsigned long oldSeed;
 	item *theItem;
 	short loc[2], i, j, x, y, px, py, flying, dir;
@@ -712,13 +714,16 @@ void startLevel(short oldLevelNumber, short stairDirection) {
 	levels[oldLevelNumber - 1].awaySince = rogue.absoluteTurnNumber;
 	
 	//	Prepare the new level
-    rogue.minersLightRadius = DCOLS - 1 << FP_BASE;
-    for (i = 0; i < rogue.depthLevel; i++) {
-        rogue.minersLightRadius = rogue.minersLightRadius * 85 / 100;
-    }
-    rogue.minersLightRadius += (225 << FP_BASE)/100;
-	updateColors();
-	updateRingBonuses(); // also updates miner's light
+    if (!scumming)
+	{
+		rogue.minersLightRadius = DCOLS - 1 << FP_BASE;
+		for (i = 0; i < rogue.depthLevel; i++) {
+			rogue.minersLightRadius = rogue.minersLightRadius * 85 / 100;
+		}
+		rogue.minersLightRadius += (225 << FP_BASE)/100;
+		updateColors();
+		updateRingBonuses(); // also updates miner's light
+	}
 	
 	if (!levels[rogue.depthLevel - 1].visited) { // level has not already been visited
         levels[rogue.depthLevel - 1].scentMap = allocGrid();
@@ -773,7 +778,8 @@ void startLevel(short oldLevelNumber, short stairDirection) {
 		//logLevel();
 		
 		// Simulate 50 turns so the level is broken in (swamp gas accumulating, brimstone percolating, etc.).
-		timeAway = 50;
+		if (!scumming) { timeAway = 50; }
+		else { timeAway = 0; }
 		
 	} else { // level has already been visited
 		
@@ -903,7 +909,7 @@ void startLevel(short oldLevelNumber, short stairDirection) {
 		&& !cellHasTerrainFlag(player.xLoc, player.yLoc, (T_ENTANGLES | T_OBSTRUCTS_PASSABILITY))) {
 		rogue.inWater = true;
 	}
-	
+    if (!scumming) {
 	updateMapToShore();
 	updateVision(true);
     rogue.aggroRange = currentAggroValue();
@@ -912,8 +918,10 @@ void startLevel(short oldLevelNumber, short stairDirection) {
 	for (monst = monsters->nextCreature; monst != NULL; monst = monst->nextCreature) {
 		updateMonsterState(monst);
 	}
+    }
 	
 	rogue.playbackBetweenTurns = true;
+	if (!scumming) {
 	displayLevel();
 	refreshSideBar(-1, -1, false);
 	
@@ -925,6 +933,509 @@ void startLevel(short oldLevelNumber, short stairDirection) {
     deleteAllFlares(); // So discovering something on the same turn that you fall down a level doesn't flash stuff on the previous level.
     hideCursor();
 }
+}
+
+//scumming functions
+
+/*
+int getExcited(item *theItem, int *excitement)
+{
+	int excitementdelta = 0;
+	if (theItem->category == WEAPON)
+	{
+		if (theItem->enchant2 == W_QUIETUS)
+			excitementdelta = 10;
+		else if (theItem->enchant2 == W_PARALYSIS)
+			excitementdelta = 10;
+		else if (theItem->enchant2 == W_SLOWING)
+			excitementdelta = 10;
+		else if (theItem->enchant2 == W_CONFUSION)
+			excitementdelta = 10;
+		else if (theItem->kind == BROADSWORD
+				|| theItem->kind == HAMMER
+				|| theItem->kind == PIKE
+				|| theItem->kind == WAR_AXE)
+			excitementdelta = theItem->enchant1 + 1;
+	}
+	else if (theItem->category == ARMOR)
+	{
+		if (theItem->kind >= BANDED_MAIL)
+		{
+			if (theItem->enchant2 == A_ABSORPTION
+				|| theItem->enchant2 == A_REPRISAL
+				|| theItem->enchant2 == A_REFLECTION)
+				excitementdelta = 5;
+			else if (theItem->kind == SPLINT_MAIL)
+				excitementdelta = theItem->enchant1;
+			else if (theItem->kind == PLATE_MAIL)
+				excitementdelta = theItem->enchant1 + 3;
+		}
+	}
+	else if (theItem->category == POTION)
+	{
+		if (theItem->kind == POTION_GAIN_STRENGTH)
+			excitementdelta = 1;
+		else if (theItem->kind == POTION_GAIN_LEVEL)
+			excitementdelta = 1;
+	}
+	else if (theItem->category == SCROLL)
+	{
+		if (theItem->kind == SCROLL_ENCHANT_ITEM)
+			excitementdelta = 1;
+	}
+	else if (theItem->category == STAFF)
+	{
+		excitementdelta = (theItem->enchant1 + 1) / 2;
+	}
+	else if (theItem->category == WAND && theItem->kind != WAND_INVISIBILITY)
+	{
+		excitementdelta = 1;
+	}
+	else if (theItem->category == RING)
+	{
+		excitementdelta = theItem->enchant1 - 1;
+	}
+	if (excitementdelta > 0) {
+		*excitement += excitementdelta;
+		return excitementdelta;
+	}
+	return 0;
+}
+*/
+
+boolean isEnchant(item *theItem)
+{
+    return (theItem->category == SCROLL && theItem->kind == SCROLL_ENCHANTING);
+}
+
+boolean isStrength(item *theItem)
+{
+    return (theItem->category == POTION && theItem->kind == POTION_STRENGTH);
+}
+
+boolean isLife(item *theItem)
+{
+    return (theItem->category == POTION && theItem->kind == POTION_LIFE);
+}
+
+boolean isBuff(item *theItem)
+{
+    return (
+               (theItem->category == SCROLL && theItem->kind == SCROLL_ENCHANTING)
+            || (theItem->category == POTION && (theItem->kind == POTION_STRENGTH || theItem->kind == POTION_LIFE ))
+            );
+}
+
+boolean isSeparator(char c)
+{
+    return (c == ',' || c == ';' || c == '&' || c == '|' || c == '.');
+}
+
+unsigned long seedPeer(unsigned long int seed)
+{
+    initializeRogue(seed, true);
+    rogue.playbackOmniscience = true;
+    char textbuf[255];
+    char itembuf[255];
+    char monstbuf[255];
+    int enchantcount = 0;
+    int strengthcount = 0;
+    int lifecount = 0;
+    item *theItem;
+    //for each floor...
+    while (rogue.depthLevel <= AMULET_LEVEL)
+    {
+        printf("\nDepth %d:\n", rogue.depthLevel);
+        startLevel(max(rogue.depthLevel - 1, 1), 1, true);
+
+        //items
+        for (theItem = floorItems->nextItem; theItem != NULL; theItem = theItem->nextItem) {
+            itemName(theItem, itembuf, true, false, NULL);
+            if (strstr(itembuf, "gold pieces") == NULL) {
+                if (pmap[theItem->xLoc][theItem->yLoc].machineNumber > 0)
+                {
+                    sprintf(textbuf, " (in machine %d)", pmap[theItem->xLoc][theItem->yLoc].machineNumber);
+                    strcat(itembuf, textbuf);
+                }
+                printf("%s\n", itembuf);
+            }
+            if (isEnchant(theItem)) ++enchantcount;
+            if (isStrength(theItem)) ++strengthcount;
+            if (isLife(theItem)) ++lifecount;
+        }
+
+        //check for captive allies
+        creature *monst;
+        for (monst = monsters; monst != NULL; monst = monst->nextCreature)
+        {
+            //check for items in monsters' pockets too
+            if (monst->carriedItem != NULL)
+            {
+                theItem = monst->carriedItem;
+                itemName(theItem, itembuf, true, false, NULL);
+                if (strstr(itembuf, "gold pieces") == NULL) {
+                    monsterNameWithMutation(monstbuf, monst, false);
+                    printf("%s (carried by %s)\n", itembuf, monstbuf);
+                }
+                if (isEnchant(theItem)) ++enchantcount;
+                if (isStrength(theItem)) ++strengthcount;
+                if (isLife(theItem)) ++lifecount;
+            }
+            if (monst->bookkeepingFlags & MB_CAPTIVE)
+            {
+                monsterNameWithMutation(monstbuf, monst, false);
+                printf("captive %s\n", monstbuf);
+            }
+        }
+        rogue.depthLevel++;
+    }
+    printf("\nIn the monster carried item queue: \n");
+    for (theItem = monsterItemsHopper->nextItem; theItem != NULL; theItem = theItem->nextItem) {
+        itemName(theItem, itembuf, true, false, NULL);
+        if (strstr(itembuf, "gold pieces") == NULL) {
+            printf("%s (carried by ???)\n", itembuf);
+        }
+    }
+
+    rogue.playbackOmniscience = false; emptyGraveyard(); freeEverything();
+    printf("\nThat seed had %d enchanting scrolls.\n", enchantcount);
+    printf("That seed had %d potions of strength.\n", strengthcount);
+    printf("That seed had %d potions of life.\n", lifecount);
+    fflush(stdout);
+    return 0;
+}
+
+unsigned long startScum(char* target, boolean gui, boolean inahurry)
+{
+    char target2[255]; int i = 0; int j = 0; const int MAX_TARGETS = 16;
+    //step 0: lower case
+    for (i = 0; target[i]; ++i) { target[i] = tolower(target[i]); }
+    strcpy(target2, target);
+
+    //we're going to split char* target into up to MAX_TARGETS targets
+    char *targets[MAX_TARGETS];
+    boolean matches[MAX_TARGETS]; for (i = 0; i < MAX_TARGETS; ++i) { matches[i] = false;}
+    targets[0] = target2;
+    short numtargets = 0;
+
+    char *end = target2;
+    //get pointer to end of target2
+    while (*end != '\0') { ++end; }
+
+    //step 1: find all separators, place positions in an array
+    for (i = 0; target2[i]; ++i) {
+        if (isSeparator(target2[i]))
+        {
+            targets[numtargets] = &target2[i];
+            //step 2: floodfill around separators into whitespace/separators with nulls
+            //starting at separator go forwards
+            char *p = targets[numtargets];
+            while (*p == ' ' || isSeparator(*p)) { *p = '\1'; ++p; }
+            if (p >= end) continue; //make sure we stayed in bounds
+            //starting BEFORE separator go backwards
+            p = targets[numtargets]; --p;
+            while (*p == ' ' || isSeparator(*p)) { *p = '\1'; --p; }
+            //NOW we move onto the next one
+            ++numtargets;
+        }
+        if (numtargets == 0) { numtargets = 1; }
+    }
+
+    //turn \1 into \0
+    for (i = 0; target2[i]; ++i) { if (target2[i] == '\1') target2[i] = '\0'; }
+
+    //step 3: move pointers to separators forward until they point to non-null (= our targets)
+    for (i = 0; i < numtargets; ++i)
+    {
+        while (*targets[i] == '\0') { targets[i]++; }
+    }
+
+    boolean enchantcheck = false;
+    int enchantexpect = (numtargets > 2) ? 15 : 20;
+
+    //step 4: does the caller care about scrolls of enchantment?
+    for (i = 0; i < numtargets; ++i)
+    {
+        if (strstr(targets[i], "enchan") != NULL)
+        {
+            enchantcheck = true;
+            //search for number
+            int tempenchantexpect = 0;
+            char *firstnumber = targets[i];
+            while (*firstnumber < '0' || *firstnumber > '9') {
+                firstnumber++;
+            }
+            sscanf(firstnumber, "%d", &tempenchantexpect);
+            if (tempenchantexpect > 1 && tempenchantexpect < 99) {
+                enchantexpect = tempenchantexpect;
+            }
+            //scrub entry, decrement numtargets, shuffle target pointers along the array
+            char *p = targets[i];
+            while (*p != '\0') {
+                *p = '\0'; ++p;
+            }
+            for (j = i + 1; j < numtargets; ++j)
+            {
+                targets[j - 1] = targets[j];
+            }
+            --numtargets;
+            if (!gui) {
+                printf("Detected that you care about scrolls of enchanting - %d or more\n", enchantexpect);
+            }
+            break;
+        }
+    }
+
+    boolean mutationcheck = false;
+
+    //step 5: is the caller looking for a mutated ally?
+    for (i = 0; i < numtargets; ++i)
+    {
+        for (j = 0; j < NUMBER_MUTATORS; ++j)
+        {
+            if (strstr(mutationCatalog[j].title, targets[i]) != NULL)
+            {
+                mutationcheck = true;
+                if (!gui) {
+                    printf("Detected that you are looking for a mutated ally - %s\n", targets[i]);
+                }
+                break;
+            }
+        }
+    }
+
+	seedRandomGenerator(0);
+	unsigned long startingSeed = rand_range(0, 1<<25);
+
+	short stopAfterDepth = inahurry ? 2 : (enchantcheck || mutationcheck) ? AMULET_LEVEL : (numtargets > 1) ? 7 : 2;
+    unsigned long seedsTried = 0;
+    unsigned long seedsToTry = (enchantcheck && enchantexpect >= 20) ? 10000 : (numtargets > 1) ? 10000 : (mutationcheck) ? 10000 : 1000;
+    char textbuf[255];
+    char itembuf[255];
+    char monstbuf[255];
+    if (!gui) {
+        printf("Searching for %ld seeds starting with %ld\n", seedsToTry, startingSeed);
+        for (i = 0; i < numtargets; ++i) {
+            printf("'%s'\n", targets[i]);
+        }
+        printf("\n");
+    }
+    fflush(stdout);
+	while (seedsTried < seedsToTry) //plenty
+	{
+
+        if (gui) {
+            //fancy loading bar
+            blackOutScreen();
+            sprintf(textbuf, "Searching, Q to abort");
+            printString(textbuf, (COLS - strLenWithoutEscapes(textbuf)) / 2, ROWS / 2 - 1, &teal, &black, 0);
+            sprintf(textbuf, "%ld", seedsTried);
+            printProgressBar((COLS - 20) / 2, ROWS / 2, textbuf,
+                         seedsTried, (seedsToTry*2) - seedsTried, &darkPurple, false);
+            printString(target, (COLS - strLenWithoutEscapes(target)) / 2, ROWS / 2 + 1, &teal, &black, 0);
+            //quit, if we wish
+            if (pauseBrogue(1))
+            {
+                rogueEvent theEvent;
+                nextBrogueEvent(&theEvent, true, false, true);
+                if (theEvent.eventType == KEYSTROKE)
+                {
+                    char key = theEvent.param1;
+                    if (key == ESCAPE_KEY || key == 'Q' || key == 'q')
+                    {return 0;}
+                }
+            }
+        }
+        for (i = 0; i < MAX_TARGETS; ++i) { matches[i] = false;}
+
+		char itemsList[255][255];
+		unsigned char itemsPos = 0;
+		int enchantcount = 0;
+        int strengthcount = 0;
+        int lifecount = 0;
+		initializeRogue(startingSeed, true);
+		rogue.playbackOmniscience = true;
+		//for each floor...
+		while (rogue.depthLevel <= stopAfterDepth)
+		{
+		    if (!gui) { sprintf(itemsList[itemsPos], "Depth %d:", rogue.depthLevel); itemsPos++; }
+            startLevel(max(rogue.depthLevel - 1, 1), 1, true);
+            //for each item, if it's not cursed/negatively enchanted...
+			item *theItem;
+			for (theItem = floorItems; theItem != NULL; theItem = theItem->nextItem) {
+                if (isEnchant(theItem)) ++enchantcount;
+                if (isStrength(theItem)) ++strengthcount;
+                if (isLife(theItem)) ++lifecount;
+			    if (gui) { if (theItem->flags & (ITEM_CURSED) || theItem->enchant1 < 0 || theItem->enchant2 < 0) continue; }
+                theItem->flags = theItem->flags | (ITEM_IDENTIFIED | ITEM_RUNIC_IDENTIFIED | ITEM_MAX_CHARGES_KNOWN);
+                itemName(theItem, itembuf, true, false, NULL);
+                boolean printed = false;
+                //for each of our target items, does a substring match work? when we find one, skip to the next item
+                for (i = 0; i < numtargets; ++i)
+                {
+                    //now each 'token' in the scum entry has to be a substring of the item's full name, not just the entire entry - so you can be abbreviated, get the order wrong, etc
+                    char tokens[255]; strncpy(tokens, targets[i], sizeof(tokens));
+                    boolean nextitemplease = false;
+                    char* pch = strtok(tokens, " ");
+                    for (; pch != NULL; pch = strtok(NULL, " "))
+                    {
+                        //allows for weapon multiplicity, armour multiplicity and so on
+                        if (strcmp("weapon", pch) == 0) { if (theItem->category == WEAPON) { continue; } }
+                        if (strcmp("armour", pch) == 0 || strcmp("armor", pch) == 0) { if (theItem->category == ARMOR) { continue; } }
+                        if (strstr(itembuf, pch) == NULL) { nextitemplease = true; break; }
+                    }
+                    if (nextitemplease) { continue; }
+                    //if (strstr(itembuf, targets[i]) != NULL)
+                    {
+                        if (!gui && !printed)
+                        {
+                            if (pmap[theItem->xLoc][theItem->yLoc].machineNumber > 0)
+                            {
+                                sprintf(textbuf, " (in machine %d)", pmap[theItem->xLoc][theItem->yLoc].machineNumber);
+                                strcat(itembuf, textbuf);
+                            }
+                            sprintf(itemsList[itemsPos], "%s", itembuf);
+                            itemsPos++;
+                            printed = true;
+                        }
+                        if (!matches[i]) { matches[i] = true; break; }
+                    }
+                }
+			}
+			//check for captive allies
+            creature *monst;
+            for (monst = monsters; monst != NULL; monst = monst->nextCreature)
+            {
+                if (monst->bookkeepingFlags & MB_CAPTIVE)
+                {
+                    monsterNameWithMutation(monstbuf, monst, false);
+                    boolean printed = false;
+                    for (i = 0; i < numtargets; ++i)
+                    {
+                        //is target a substring of monster, or is monster a substring of target
+                        //(and immunity is not a substring of target and slaying is not a substring of target)?
+                        if (strstr(monstbuf, targets[i]) != NULL ||
+                            (strstr(targets[i], monstbuf) != NULL && strstr(targets[i], "immun") == NULL && strstr(targets[i], "slay") == NULL))
+                        {
+                            if (!gui && !printed) { sprintf(itemsList[itemsPos], "captive %s", monstbuf); itemsPos++; printed = true;}
+                            if (!matches[i]) { matches[i] = true; break; }
+                        }
+                    }
+                }
+                else if (strcmp(monst->info.monsterName, "black jelly") == 0 ) //for black jelly scumming
+                {
+                    boolean printed = false;
+                    for (i = 0; i < numtargets; ++i)
+                    {
+                        if (strstr("black jelly", targets[i]) != NULL)
+                        {
+                            monsterNameWithMutation(monstbuf, monst, false);
+                            if (!gui && !printed) { sprintf(itemsList[itemsPos], "%s", monstbuf); itemsPos++; printed = true;}
+                            if (!matches[i]) { matches[i] = true; break; }
+                        }
+                    }
+                }
+                //check for items in monsters' pockets too
+                if (monst->carriedItem != NULL)
+                {
+                    theItem = monst->carriedItem;
+                    if (isEnchant(theItem)) ++enchantcount;
+                    if (isStrength(theItem)) ++strengthcount;
+                    if (isLife(theItem)) ++lifecount;
+                    if (gui) { if (theItem->flags & (ITEM_CURSED) || theItem->enchant1 < 0 || theItem->enchant2 < 0) continue; }
+                    theItem->flags = theItem->flags | (ITEM_IDENTIFIED | ITEM_RUNIC_IDENTIFIED | ITEM_MAX_CHARGES_KNOWN);
+                    itemName(theItem, itembuf, true, false, NULL);
+                    boolean printed = false;
+                    //for each of our target items, does a substring match work? when we find one, skip to the next item
+                    for (i = 0; i < numtargets; ++i)
+                    {
+                        //now each 'token' in the scum entry has to be a substring of the item's full name, not just the entire entry - so you can be abbreviated, get the order wrong, etc
+                        char tokens[255]; strncpy(tokens, targets[i], sizeof(tokens));
+                        boolean nextitemplease = false;
+                        char* pch = strtok(tokens, " ");
+                        for (; pch != NULL; pch = strtok(NULL, " "))
+                        {
+                            //allows for weapon multiplicity, armour multiplicity and so on
+                            if (strcmp("weapon", pch) == 0) { if (theItem->category == WEAPON) { continue; } }
+                            if (strcmp("armour", pch) == 0 || strcmp("armor", pch) == 0) { if (theItem->category == ARMOR) { continue; } }
+                            if (strstr(itembuf, pch) == NULL) { nextitemplease = true; break; }
+                        }
+                        if (nextitemplease) { continue; }
+                        //if (strstr(itembuf, targets[i]) != NULL)
+                        {
+                            monsterNameWithMutation(monstbuf, monst, false);
+                            if (!gui && !printed) { sprintf(itemsList[itemsPos], "%s (carried by %s)", itembuf, monstbuf); itemsPos++; printed = true;}
+                            if (!matches[i]) { matches[i] = true; break; }
+                        }
+                    }
+                }
+            }
+
+			rogue.depthLevel++;
+		}
+		rogue.playbackOmniscience = false; emptyGraveyard(); freeEverything();
+		boolean allmatched = true;
+		for (i = 0; i < numtargets; ++i)
+		{
+		    if (!matches[i]) { allmatched = false; break;}
+		}
+
+		if (allmatched && (!enchantcheck || (enchantcheck && (enchantcount >= enchantexpect)))){
+		    if (!gui) {
+                printf("I sense seed %ld has what you seek...\n", startingSeed);
+                for (i = 0; i < itemsPos; i++)
+                {
+                    printf("%s\n", itemsList[i]);
+                }
+                if (enchantcheck) {
+                        printf("\nThat seed had %d enchanting scrolls.\n", enchantcount);
+                        printf("That seed had %d potions of strength.\n", strengthcount);
+                        printf("That seed had %d potions of life.\n", lifecount);
+                }
+                printf("\n");
+                fflush(stdout);
+		    }
+		    else {
+		        blackOutScreen();
+		        sprintf(textbuf, "You shall find '%s' in seed %ld", target, startingSeed);
+		        displayCenteredAlert(textbuf);
+		        sprintf(textbuf, "on the first %d floors...", stopAfterDepth);
+		        printString(textbuf, (COLS - strLenWithoutEscapes(textbuf)) / 2, ROWS / 2 + 1, &teal, &black, 0);
+		        displayMoreSign();
+                return startingSeed;
+		    }
+        }
+
+		startingSeed++; seedsTried++;
+	}
+
+	if (gui) {
+
+	    blackOutScreen();
+	    sprintf(textbuf, "Example searches:");
+	    printString(textbuf, (COLS - strLenWithoutEscapes(textbuf)) / 2, ROWS / 2 + 3, &teal, &black, 0);
+	    sprintf(textbuf, "quietus");
+	    printString(textbuf, (COLS - strLenWithoutEscapes(textbuf)) / 2, ROWS / 2 + 4, &teal, &black, 0);
+	    sprintf(textbuf, "+3 axe of quietus");
+	    printString(textbuf, (COLS - strLenWithoutEscapes(textbuf)) / 2, ROWS / 2 + 5, &teal, &black, 0);
+	    sprintf(textbuf, "quietus, plate");
+	    printString(textbuf, (COLS - strLenWithoutEscapes(textbuf)) / 2, ROWS / 2 + 6, &teal, &black, 0);
+	    sprintf(textbuf, "staff of obstruction [4/4]");
+	    printString(textbuf, (COLS - strLenWithoutEscapes(textbuf)) / 2, ROWS / 2 + 7, &teal, &black, 0);
+	    sprintf(textbuf, "wand of plenty [4]");
+	    printString(textbuf, (COLS - strLenWithoutEscapes(textbuf)) / 2, ROWS / 2 + 8, &teal, &black, 0);
+	    sprintf(textbuf, "stealth, war hammer, +3 ring of awareness");
+	    printString(textbuf, (COLS - strLenWithoutEscapes(textbuf)) / 2, ROWS / 2 + 9, &teal, &black, 0);
+	    sprintf(textbuf, "Didn't find '%s' in %ld seeds. Try again?", target, seedsToTry);
+        if (confirm(textbuf, true)) return startScum(target, gui, inahurry);
+	 }
+	 else {
+        printf("Searched %ld seeds. I'm done.\n", seedsTried);
+	 }
+	return 0;
+}
+
+//end seed scumming functions
 
 void freeGlobalDynamicGrid(short ***grid) {
 	if (*grid) {

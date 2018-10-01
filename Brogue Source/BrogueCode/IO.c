@@ -2694,6 +2694,120 @@ boolean getInputTextString(char *inputText,
 	return true;
 }
 
+boolean getInputTextStringWithCheckbox(
+                            char *inputText,
+                            boolean *checkboxResult,
+                            const char *prompt,
+                            const char *checkboxPrompt,
+                            short maxLength,
+                            const char *defaultEntry,
+                            const char *promptSuffix,
+                            short textEntryType,
+                            boolean useDialogBox) {
+	short charNum, i, x, y;
+	char keystroke, suffix[100];
+	const short textEntryBounds[TEXT_INPUT_TYPES][2] = {{' ', '~'}, {'0', '9'}};
+	cellDisplayBuffer dbuf[COLS][ROWS], rbuf[COLS][ROWS];
+	rogueEvent theEvent;
+	*checkboxResult = false;
+
+	// x and y mark the origin for text entry.
+	if (useDialogBox) {
+		x = (COLS - max(maxLength, strLenWithoutEscapes(prompt))) / 2;
+		y = ROWS / 2 - 1;
+		clearDisplayBuffer(dbuf);
+		rectangularShading(x - 1, y - 2, max(max(maxLength, strLenWithoutEscapes(prompt)), strLenWithoutEscapes(checkboxPrompt) + 2 ) + 2,
+						   6, &interfaceBoxColor, INTERFACE_OPACITY, dbuf);
+		overlayDisplayBuffer(dbuf, rbuf);
+		printString(prompt, x, y - 1, &white, &interfaceBoxColor, NULL);
+		printString(checkboxPrompt, x + 2, y + 2, &white, &interfaceBoxColor, NULL);
+		for (i=0; i<maxLength; i++) {
+			plotCharWithColor(' ', x + i, y, &black, &black);
+		}
+		plotCharWithColor(' ', x, y + 2, &black, &black); //checkbox box
+		printString(defaultEntry, x, y, &white, &black, 0);
+	} else {
+		confirmMessages();
+		x = mapToWindowX(strLenWithoutEscapes(prompt));
+		y = MESSAGE_LINES - 1;
+		message(prompt, false);
+		printString(defaultEntry, x, y, &white, &black, 0);
+	}
+
+	maxLength = min(maxLength, COLS - x);
+
+
+	strcpy(inputText, defaultEntry);
+	charNum = strLenWithoutEscapes(inputText);
+	for (i = charNum; i < maxLength; i++) {
+		inputText[i] = ' ';
+	}
+
+	if (promptSuffix[0] == '\0') { // empty suffix
+		strcpy(suffix, " "); // so that deleting doesn't leave a white trail
+	} else {
+		strcpy(suffix, promptSuffix);
+	}
+
+	do {
+		printString(suffix, charNum + x, y, &gray, &black, 0);
+		plotCharWithColor((suffix[0] ? suffix[0] : ' '), x + charNum, y, &black, &white);
+		nextBrogueEvent(&theEvent, true, false, false);
+		if (theEvent.eventType == KEYSTROKE)
+		{
+		    keystroke = theEvent.param1;
+		}
+		else
+		{
+            keystroke = (char)0;
+            if (theEvent.eventType == MOUSE_DOWN)
+            {
+                if (theEvent.param1 == x && theEvent.param2 == y + 2) //clicked on checkbox
+                {
+                    if (*checkboxResult)
+                    {
+                        *checkboxResult = false;
+                        plotCharWithColor(' ', x, y + 2, &black, &black);
+                    }
+                    else
+                    {
+                        *checkboxResult = true;
+                        plotCharWithColor('X', x, y + 2, &white, &black);
+                    }
+                }
+            }
+		}
+		if (keystroke == DELETE_KEY && charNum > 0) {
+			printString(suffix, charNum + x - 1, y, &gray, &black, 0);
+			plotCharWithColor(' ', x + charNum + strlen(suffix) - 1, y, &black, &black);
+			charNum--;
+			inputText[charNum] = ' ';
+		} else if (keystroke >= textEntryBounds[textEntryType][0]
+				   && keystroke <= textEntryBounds[textEntryType][1]) { // allow only permitted input
+
+			inputText[charNum] = keystroke;
+			plotCharWithColor(keystroke, x + charNum, y, &white, &black);
+			printString(suffix, charNum + x + 1, y, &gray, &black, 0);
+			if (charNum < maxLength) {
+				charNum++;
+			}
+		}
+	} while (keystroke != RETURN_KEY && keystroke != ESCAPE_KEY && keystroke != ENTER_KEY);
+
+	if (useDialogBox) {
+		overlayDisplayBuffer(rbuf, NULL);
+	}
+
+	inputText[charNum] = '\0';
+
+	if (keystroke == ESCAPE_KEY) {
+		return false;
+	}
+	strcat(displayedMessage[0], inputText);
+	strcat(displayedMessage[0], suffix);
+	return true;
+}
+
 void displayCenteredAlert(char *message) {
 	printString(message, (COLS - strLenWithoutEscapes(message)) / 2, ROWS / 2, &teal, &black, 0);
 }

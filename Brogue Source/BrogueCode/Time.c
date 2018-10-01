@@ -977,7 +977,7 @@ void playerFalls() {
     
     if (rogue.depthLevel < DEEPEST_LEVEL) {
         rogue.depthLevel++;
-        startLevel(rogue.depthLevel - 1, 0);
+        startLevel(rogue.depthLevel - 1, 0, false);
         damage = randClumpedRange(FALL_DAMAGE_MIN, FALL_DAMAGE_MAX, 2);
         messageWithColor("You are damaged by the fall.", &badMessageColor, false);
         if (inflictDamage(NULL, &player, damage, &red, false)) {

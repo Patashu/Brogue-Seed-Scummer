@@ -640,8 +640,8 @@ void advanceToLocation(unsigned long destinationFrame) {
         freeEverything();
         randomNumbersGenerated = 0;
         rogue.playbackMode = true;
-        initializeRogue(0); // Seed argument is ignored because we're in playback.
-        startLevel(rogue.depthLevel, 1);
+					initializeRogue(0, false); // Seed argument is ignored because we're in playback.
+					startLevel(rogue.depthLevel, 1, false);
         if (useProgressBar) {
             blackOutScreen();
         }
@@ -1130,10 +1130,10 @@ void loadSavedGame() {
 	randomNumbersGenerated = 0;
 	rogue.playbackMode = true;
 	rogue.playbackFastForward = true;
-	initializeRogue(0); // Calls initRecording(). Seed argument is ignored because we're initially in playback mode.
+	initializeRogue(0, false); // Calls initRecording(). Seed argument is ignored because we're initially in playback mode.
 	if (!rogue.gameHasEnded) {
 		blackOutScreen();
-		startLevel(rogue.depthLevel, 1);
+		startLevel(rogue.depthLevel, 1, false);
 	}
 	
 	if (rogue.howManyTurns > 0) {
